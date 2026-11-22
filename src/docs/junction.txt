@@ -1,0 +1,6 @@
+# instruction to setup links so llm only search the project folder
+
+junction encyclopedia-of-jai-examples [your path to https://github.com/qiekn/ootss-cmd \docs\encyclopedia-of-jai-examples]
+
+junction jai-examples [your path to jacket\examples]
+junction jai-stdlib [your path to jacket\stdlib]

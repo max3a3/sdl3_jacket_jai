@@ -1,0 +1,11 @@
+*.exe
+*.pdb
+*.lib
+*.ca
+
+*.exp
+./docs/encyclopedia-of-jai-examples/*
+./docs/jai-stdlib/*
+./docs/jai-examples/*
+
+.idea/
