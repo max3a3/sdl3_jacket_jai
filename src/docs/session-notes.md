@@ -99,3 +99,62 @@ the reflection data used to fill in `num_samplers` / `num_uniform_buffers` in th
   the four corners, with the per-quad multiply-colour tint animating. Matches the
   C example's intent.
 
+---
+
+# Session notes — DepthArray port
+
+## Goal
+
+Port `src/sdl-examples/c-examples/DepthArray.c` to
+`src/sdl-examples/depth_array.jai`, using `basic_triangle.jai` as the structural
+guide and `depth_sampler.jai` as the sibling example for depth targets, matrices
+and fullscreen passes.
+
+## Files added / changed
+
+- `src/sdl-examples/depth_array.jai` — new port, exports `depth_array_example`.
+- `src/examples.jai` — `#load` of the new file; the active `example:` line now
+  selects `depth_array_example` (the previous `textured_animated_quad_example`
+  line is commented out).
+
+No new shaders were needed: `PositionColorTransform.vert`, `Empty.frag`,
+`Fullscreen.vert` and `DepthSample.frag` were already compiled into
+`assets/compiled/`.
+
+## How it works
+
+Structure mirrors the C one-to-one. The scene is drawn twice, once per layer of a
+`D16_UNORM` 2D-array depth texture (no colour target, `num_color_targets = 0`),
+each pass with its own view matrix, viewport (`SceneWidth/2 × SceneHeight/2`, at
+`(0,0)` for layer 0 and `(SceneWidth/2, SceneHeight/2)` for layer 1) and
+`depthStencilTargetInfo.layer`. Then one fullscreen pass binds the depth array to
+`DepthSample.frag`, which greyscales it and picks the layer from
+`TexCoord.y > 0.5`.
+
+Matrices reuse `example_common.jai`'s `Matrix4x4_CreatePerspectiveFieldOfView` /
+`Matrix4x4_CreateLookAt` and `Math.multiply`, exactly as `depth_sampler.jai` does.
+Those helpers are byte-for-byte ports of SDL's row-vector `Common.h` functions, so
+the pushed bytes match the C. (This is the opposite case from
+`textured_animated_quad.jai`, which needed native `Math` matrices.)
+
+## Deliberate deviations from the C
+
+- The final pass draws with `SDL_DrawGPUPrimitives(render_pass, 3, ...)`. The C
+  calls `SDL_DrawGPUIndexedPrimitives(..., 3, ...)` there but never binds an index
+  buffer; `Fullscreen.vert` is driven entirely by `SV_VertexID`, so the
+  non-indexed draw is the correct call.
+- The transfer buffer is unmapped explicitly before the copy pass is recorded
+  (the same deferred-unmap trap as in `textured_quad.jai`).
+- The `SDL_AcquireGPUCommandBuffer` for the upload and the upload
+  `SDL_CreateGPU*` results are null-checked (the C does not).
+- The C pushes `near/far` as fragment uniform data although `Empty.frag` has no
+  uniform buffers; the port keeps the push (harmless) with a comment.
+
+## Verification done
+
+- `jaic -check examples.jai` clean, including `-no_dce`.
+- `jaic -exe examples.exe examples.jai` builds clean.
+- Ran the binary: no SDL/GPU validation errors on stderr. Captured the window —
+  two greyscale depth renders of the cube, top-left (layer 0) and bottom-right
+  (layer 1), on the white "depth = 1" background. Matches the C example's intent.
+

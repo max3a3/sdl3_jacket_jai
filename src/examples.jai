@@ -3,6 +3,7 @@
 #load "sdl-examples/basic_triangle.jai";
 #load "sdl-examples/instanced_indexed.jai";
 #load "sdl-examples/depth_sampler.jai";
+#load "sdl-examples/depth_array.jai";
 #load "sdl-examples/compute_uniforms.jai";
 #load "sdl-examples/textured_quad.jai";
 #load "sdl-examples/textured_animated_quad.jai";
@@ -11,9 +12,10 @@ main :: () {
     // example: SDLExample = basic_triangle_example;
     // example: SDLExample = instanced_indexed_example;
     // example: SDLExample = depth_sampler_example;
+    example: SDLExample = depth_array_example;
     // example: SDLExample = compute_uniforms_example;
     // example: SDLExample = textured_quad_example;
-    example: SDLExample = textured_animated_quad_example;
+    // example: SDLExample = textured_animated_quad_example;
 
     if !SDL_Init(SDL_INIT_VIDEO) {
         log("Failed to initialize SDL: %", SDL_GetError());

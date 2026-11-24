@@ -4,8 +4,10 @@
 *.ca
 
 *.exp
-./docs/encyclopedia-of-jai-examples/*
-./docs/jai-stdlib/*
-./docs/jai-examples/*
+/src/docs/encyclopedia-of-jai-examples/
+/src/docs/jai-stdlib/
+/src/docs/jai-examples/
 
 .idea/
+.claude/
+
