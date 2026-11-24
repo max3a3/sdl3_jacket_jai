@@ -158,3 +158,71 @@ the pushed bytes match the C. (This is the opposite case from
   two greyscale depth renders of the cube, top-left (layer 0) and bottom-right
   (layer 1), on the white "depth = 1" background. Matches the C example's intent.
 
+---
+
+# Session notes — CopyAndReadback port
+
+## Goal
+
+Port `src/sdl-examples/c-examples/CopyAndReadback.c` to
+`src/sdl-examples/copy_and_readback.jai`. Nothing is drawn from scratch: the
+example exercises texture/buffer copies and GPU-to-CPU readback, then blits three
+views of the same image.
+
+## Files added / changed
+
+- `src/sdl-examples/copy_and_readback.jai` — new port, exports
+  `copy_and_readback_example`.
+- `src/examples.jai` — `#load` of the new file; the active `example:` line now
+  selects `copy_and_readback_example`.
+
+No new shaders or baked assets were needed (the example has no pipelines at all).
+
+## How it works
+
+`init` loads `ravioli.bmp` and converts it to `SDL_PIXELFORMAT_RGBA32` (the same
+conversion `LoadImage(..., 4)` does in the C's `Common.h`). It creates three
+`R8G8B8A8_UNORM` textures (original, copy, and a half-size
+`SAMPLER | COLOR_TARGET` target) plus two `GRAPHICS_STORAGE_READ` buffers holding
+eight `u32`s. A single command buffer records:
+
+1. upload texture + buffer,
+2. `SDL_CopyGPUTextureToTexture` and `SDL_CopyGPUBufferToBuffer`,
+3. `SDL_BlitGPUTexture` into the half-size texture,
+4. `SDL_DownloadFromGPUTexture` / `SDL_DownloadFromGPUBuffer` into a download
+   transfer buffer.
+
+It submits with `SDL_SubmitGPUCommandBufferAndAcquireFence`, waits on the fence,
+maps the download buffer and `memcmp`s both payloads against the originals
+(`memcmp` is a Jai builtin — no import needed).
+
+`draw` clears the swapchain to black in a tiny render pass, then issues three
+blits with `SDL_GPU_LOADOP_LOAD`: original top-left, GPU copy top-right, and the
+half-size texture stretched into the bottom-centre.
+
+Types worth noting: `u32.[...]` for the buffer payload (the C initialiser leaves
+the eighth element zero); `buffer_size` is cast to `u32` because `size_of` is
+`s64` and the SDL size fields are `Uint32`.
+
+## Deliberate deviations from the C
+
+- The upload transfer buffer is unmapped explicitly before the copy pass is
+  recorded (same deferred-unmap trap as `textured_quad.jai`).
+- The upload command buffer, fence and map results are null-checked (the C does
+  not).
+- `load_image()` from `example_common.jai` is avoided: its `defer
+  SDL_DestroySurface(result)` fires after `return` and frees the surface it
+  returns. The port does `SDL_LoadBMP` + `SDL_ConvertSurface` directly, as in
+  `textured_animated_quad.jai`.
+
+## Verification done
+
+- `jaic -check examples.jai` clean, including `-no_dce`.
+- `jaic -exe examples.exe examples.jai` builds clean.
+- Ran the binary: no SDL/GPU validation errors on stderr, and stdout printed
+  `SUCCESS! Original texture bytes and the downloaded bytes match!` and
+  `SUCCESS! Original buffer bytes and the downloaded bytes match!`.
+- Captured the window: ravioli top-left, identical copy top-right, and the
+  half-size (upscaled, so softened) version bottom-centre on black. Matches the
+  C example's intent.
+
